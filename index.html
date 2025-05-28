@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Emparejamiento de Google Slides</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <style>
+        /* Estilos generales del cuerpo */
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5; /* Un color de fondo suave */
+            color: #333;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto; /* Permite desplazamiento si el contenido es largo */
+        }
+
+        /* Contenedor principal del juego */
+        .game-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 900px; /* Ancho máximo para el juego */
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Título del juego */
+        h1 {
+            color: #4285F4; /* Azul de Google */
+            margin-bottom: 25px;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+
+        /* Contenedor de la cuadrícula de cartas */
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* 5 columnas */
+            grid-template-rows: repeat(4, 1fr); /* 4 filas */
+            gap: 15px; /* Espacio entre cartas */
+            perspective: 1000px; /* Para el efecto 3D de volteo */
+            justify-content: center;
+            align-items: center;
+            max-width: 800px; /* Ancho máximo de la cuadrícula */
+            margin: 0 auto; /* Centrar la cuadrícula */
+        }
+
+        /* Estilos individuales de las cartas */
+        .card {
+            width: 100%;
+            padding-bottom: 100%; /* Mantiene la relación de aspecto 1:1 */
+            position: relative;
+            cursor: pointer;
+            border-radius: 10px; /* Bordes redondeados para las cartas */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            transition: transform 0.6s; /* Transición para el volteo */
+            transform-style: preserve-3d; /* Permite el volteo 3D */
+        }
+
+        /* Cuando la carta está volteada */
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        /* Cuando la carta está emparejada */
+        .card.matched {
+            opacity: 1; /* Las cartas emparejadas se quedan completamente visibles */
+            cursor: default;
+        }
+
+        /* Caras frontal y trasera de la carta */
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* Oculta la cara opuesta durante el volteo */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+            overflow: hidden; /* Asegura que el contenido no se desborde */
+            box-sizing: border-box;
+        }
+
+        /* Cara frontal (oculta inicialmente) */
+        .card-front {
+            background-color: #e0e0e0; /* Color gris claro para la parte trasera */
+            transform: rotateY(180deg); /* Oculta la cara frontal inicialmente */
+            font-size: 0.9em; /* Tamaño de fuente ajustado para más texto */
+            font-weight: 600;
+            text-align: center;
+            color: #555;
+            word-break: break-word; /* Rompe palabras largas */
+            line-height: 1.3em; /* Espaciado de línea para mejor legibilidad */
+            padding: 5px; /* Padding ajustado para dar más espacio al texto */
+            display: flex; /* Asegura que el texto se centre correctamente */
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Cara trasera (visible inicialmente) */
+        .card-back {
+            background-color: rgb(154, 30, 21); /* Azul de Google para la parte trasera */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Estilo para las imágenes dentro de las cartas */
+        .card-front img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain; /* Ajusta la imagen sin recortarla */
+            border-radius: 8px; /* Bordes redondeados para las imágenes */
+        }
+
+        /* Estilo para la imagen en la cara trasera de la carta */
+        .card-back img {
+            max-width: 80%; /* Ajusta el tamaño de la imagen del reverso */
+            max-height: 80%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        /* Estilos para el mensaje de victoria */
+        .win-message {
+            margin-top: 30px;
+            font-size: 1.8em;
+            color: #34A853; /* Verde de Google */
+            font-weight: 700;
+            display: none; /* Oculto inicialmente */
+        }
+
+        /* Contenedor para el botón y el campo de nombre */
+        .game-controls {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column; /* Apila elementos en móvil */
+            align-items: center;
+            gap: 15px; /* Espacio entre elementos */
+        }
+
+        /* Campo de entrada de nombre */
+        .player-name-input {
+            padding: 10px 15px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            font-size: 1em;
+            width: 100%;
+            max-width: 250px; /* Ancho máximo para el campo */
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        /* Botón de reiniciar */
+        .restart-button {
+            background-color: #FBBC04; /* Amarillo de Google */
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 250px; /* Ancho máximo para el botón */
+        }
+
+        .restart-button:hover {
+            background-color: #F6BF26; /* Tono más oscuro al pasar el ratón */
+            transform: translateY(-2px); /* Pequeño efecto de elevación */
+        }
+
+        .restart-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Responsive design para pantallas más pequeñas */
+        @media (min-width: 769px) {
+            .game-controls {
+                flex-direction: row; /* En línea en pantallas más grandes */
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .game-grid {
+                grid-template-columns: repeat(4, 1fr); /* 4 columnas en tablet */
+                gap: 12px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .card-front {
+                font-size: 0.85em; /* Ajuste para pantallas más pequeñas */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-grid {
+                grid-template-columns: repeat(3, 1fr); /* 3 columnas en móvil */
+                gap: 10px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .card-front {
+                font-size: 0.8em; /* Ajuste para pantallas aún más pequeñas */
+            }
+
+            .game-container {
+                padding: 20px;
+            }
+
+            .restart-button, .player-name-input {
+                padding: 10px 20px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1></h1>
+        <div class="game-grid" id="gameGrid">
+            </div>
+        <div class="win-message" id="winMessage">
+            ¡Felicidades! ¡Has encontrado todos los pares!
+        </div>
+        <div class="game-controls">
+            <input type="text" id="playerNameInput" class="player-name-input" placeholder="Escribe tu nombre">
+            <button class="restart-button" id="restartButton">Reiniciar Juego</button>
+        </div>
+    </div>
+
+    <script>
+        // Obtiene el elemento de la cuadrícula del juego
+        const gameGrid = document.getElementById('gameGrid');
+        // Obtiene el mensaje de victoria
+        const winMessage = document.getElementById('winMessage');
+        // Obtiene el botón de reiniciar
+        const restartButton = document.getElementById('restartButton');
+        // Obtiene el campo de entrada del nombre del jugador
+        const playerNameInput = document.getElementById('playerNameInput');
+
+        // Array para almacenar las cartas actualmente volteadas
+        let flippedCards = [];
+        // Contador de pares encontrados
+        let matchesFound = 0;
+        // Bloquea el tablero para evitar clics adicionales durante la comprobación de emparejamiento
+        let lockBoard = false;
+
+        // Definición de los pares de cartas (imagen y texto)
+        const cardPairs = [
+            { image: 'img/insertar_imagen.jpg', text: 'Insertar imagen en diapositiva' },
+            { image: 'img/modo_presentacion.jpg', text: 'Iniciar modo presentación' },
+            { image: 'img/insertar_video.jpg', text: 'Insertar video de YouTube' },
+            { image: 'img/duplicar_diapositiva.jpg', text: 'Duplicar diapositiva actual' },
+            { image: 'img/diseno_diapositiva.jpg', text: 'Cambiar diseño de diapositiva' },
+            { image: 'img/fondo_diapositiva.jpg', text: 'Cambiar fondo de la diapositiva' },
+            { image: 'img/insertar_comentario.jpg', text: 'Insertar comentario en un elemento' },
+            { image: 'img/transiciones.jpg', text: 'Añadir transiciones entre diapositivas' },
+            { image: 'img/formato_texto.jpg', text: 'Cambiar formato de texto y fuente' },
+            { image: 'img/insertar_hipervinculo.jpg', text: 'Insertar hipervínculo a una web' }
+        ];
+
+        // Función para crear las cartas del juego
+        function createCards() {
+            // Genera un array con todas las cartas, duplicando cada par
+            const cards = [];
+            cardPairs.forEach((pair, index) => {
+                // Crea la carta de imagen
+                cards.push({
+                    id: `img-${index}`, // ID único para la carta de imagen
+                    type: 'image',
+                    value: pair.image,
+                    pairId: index // ID de par para emparejar
+                });
+                // Crea la carta de texto
+                cards.push({
+                    id: `text-${index}`, // ID único para la carta de texto
+                    type: 'text',
+                    value: pair.text,
+                    pairId: index // ID de par para emparejar
+                });
+            });
+
+            // Mezcla las cartas aleatoriamente
+            shuffle(cards);
+
+            // Vacía la cuadrícula actual del juego
+            gameGrid.innerHTML = '';
+            // Oculta el mensaje de victoria y lo restablece a su texto original
+            winMessage.style.display = 'none';
+            winMessage.textContent = '¡Felicidades! ¡Has encontrado todos los pares!';
+
+
+            // Crea y añade los elementos HTML para cada carta
+            cards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('card');
+                cardElement.dataset.id = card.id; // Almacena el ID de la carta en el dataset
+                cardElement.dataset.pairId = card.pairId; // Almacena el ID del par
+
+                // Crea la cara frontal de la carta
+                const cardFront = document.createElement('div');
+                cardFront.classList.add('card-face', 'card-front');
+                if (card.type === 'image') {
+                    // Si es una carta de imagen, crea un elemento img
+                    const img = document.createElement('img');
+                    img.src = card.value; // Ruta de la imagen
+                    img.alt = card.value.replace('.jpg', ''); // Texto alternativo
+                    cardFront.appendChild(img);
+                } else {
+                    // Si es una carta de texto, ahora muestra el texto directamente
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = card.value; // El texto del concepto
+                    cardFront.appendChild(textSpan);
+                }
+
+                // Crea la cara trasera de la carta (visible inicialmente)
+                const cardBack = document.createElement('div');
+                cardBack.classList.add('card-face', 'card-back');
+                // La cara trasera muestra una imagen placeholder genérica
+                const backImg = document.createElement('img');
+                backImg.src = 'img/u.jpg'; // Placeholder genérico
+                backImg.alt = 'Google Slides Icon';
+                backImg.onerror = function() { this.src = 'img/u.jpg'; }; // Fallback
+                cardBack.appendChild(backImg);
+
+                // Añade las caras a la carta
+                cardElement.appendChild(cardFront);
+                cardElement.appendChild(cardBack);
+
+                // Añade un evento de clic a la carta
+                cardElement.addEventListener('click', flipCard);
+                // Añade la carta a la cuadrícula del juego
+                gameGrid.appendChild(cardElement);
+            });
+        }
+
+        // Función para mezclar un array (algoritmo de Fisher-Yates)
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]]; // Intercambia elementos
+            }
+        }
+
+        // Función para voltear una carta
+        function flipCard() {
+            // Si el tablero está bloqueado o la carta ya está volteada/emparejada, no hace nada
+            if (lockBoard || this === flippedCards[0] || this.classList.contains('flipped') || this.classList.contains('matched')) {
+                return;
+            }
+
+            this.classList.add('flipped'); // Añade la clase 'flipped' para voltear la carta
+            flippedCards.push(this); // Añade la carta al array de cartas volteadas
+
+            // Si hay dos cartas volteadas, comprueba si hay un emparejamiento
+            if (flippedCards.length === 2) {
+                lockBoard = true; // Bloquea el tablero
+                checkForMatch();
+            }
+        }
+
+        // Función para comprobar si las dos cartas volteadas coinciden
+        function checkForMatch() {
+            const [firstCard, secondCard] = flippedCards;
+            // Comprueba si los ID de par coinciden
+            const isMatch = firstCard.dataset.pairId === secondCard.dataset.pairId;
+
+            if (isMatch) {
+                // Si hay coincidencia, deshabilita las cartas (las mantiene volteadas)
+                disableCards();
+            } else {
+                // Si no hay coincidencia, voltea las cartas de nuevo después de un breve retraso
+                unflipCards();
+            }
+        }
+
+        // Función para mantener las cartas emparejadas boca arriba
+        function disableCards() {
+            const [firstCard, secondCard] = flippedCards;
+            firstCard.classList.add('matched'); // Marca la primera carta como emparejada
+            secondCard.classList.add('matched'); // Marca la segunda carta como emparejada
+
+            // Elimina los event listeners para que no se puedan volver a voltear
+            firstCard.removeEventListener('click', flipCard);
+            secondCard.removeEventListener('click', flipCard);
+
+            matchesFound++; // Incrementa el contador de pares encontrados
+            resetBoard(); // Reinicia el estado del tablero
+            checkWin(); // Comprueba si el jugador ha ganado
+        }
+
+        // Función para voltear las cartas no emparejadas de nuevo
+        function unflipCards() {
+            const [firstCard, secondCard] = flippedCards;
+            // Después de un segundo, quita la clase 'flipped' para voltearlas de nuevo
+            setTimeout(() => {
+                firstCard.classList.remove('flipped');
+                secondCard.classList.remove('flipped');
+                resetBoard(); // Reinicia el estado del tablero
+            }, 1000); // Retraso de 1 segundo
+        }
+
+        // Función para reiniciar el estado del tablero después de un intento de emparejamiento
+        function resetBoard() {
+            flippedCards = []; // Vacía el array de cartas volteadas
+            lockBoard = false; // Desbloquea el tablero
+        }
+
+        // Función para comprobar si el jugador ha ganado
+        function checkWin() {
+            if (matchesFound === cardPairs.length) {
+                const playerName = playerNameInput.value.trim(); // Obtiene el nombre del jugador
+                if (playerName) {
+                    winMessage.textContent = `¡Felicidades, ${playerName}! ¡Has encontrado todos los pares!`;
+                } else {
+                    winMessage.textContent = '¡Felicidades! ¡Has encontrado todos los pares!';
+                }
+                winMessage.style.display = 'block';
+
+                // Lanza el confeti
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        // Función para reiniciar el juego completamente
+        function restartGame() {
+            flippedCards = [];
+            matchesFound = 0;
+            lockBoard = false;
+            createCards(); // Vuelve a crear y mezclar las cartas
+        }
+
+        // Añade un event listener al botón de reiniciar
+        restartButton.addEventListener('click', restartGame);
+
+        // Inicializa el juego cuando la ventana se carga
+        window.onload = createCards;
+    </script>
+</body>
+</html>
